@@ -1,4 +1,3 @@
-workspace = { members = ["src/explorer"] }
 [package]
 name = "fexplorer"
 version = "0.1.0"
