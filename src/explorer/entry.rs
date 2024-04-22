@@ -4,8 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::enums;
-
+use super::enums;
 use enums::EntryType;
 
 pub struct Entry {
