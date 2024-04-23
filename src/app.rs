@@ -64,26 +64,28 @@ impl eframe::App for Fexplorer {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
-            let mut change_path = false;
-            let mut rel_path: Box<PathBuf> = Box::new(PathBuf::new());
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                let mut change_path = false;
+                let mut rel_path: Box<PathBuf> = Box::new(PathBuf::new());
 
-            for entry in self.explorer.get_entries() {
-                let name = format!(
-                    "[{}] {}",
-                    get_entry_type(entry.get_type()),
-                    entry.get_name().to_str().unwrap()
-                );
+                for entry in self.explorer.get_entries() {
+                    let name = format!(
+                        "[{}] {}",
+                        get_entry_type(entry.get_type()),
+                        entry.get_name().to_str().unwrap()
+                    );
 
-                if ui.button(name.clone()).clicked() {
-                    change_path = true;
-                    rel_path = entry.get_rel_path().unwrap();
-                    break;
+                    if ui.button(name.clone()).clicked() {
+                        change_path = true;
+                        rel_path = entry.get_rel_path().unwrap();
+                        break;
+                    };
+                }
+
+                if change_path {
+                    self.explorer.add_path(&rel_path).unwrap();
                 };
-            }
-
-            if change_path {
-                self.explorer.add_path(&rel_path).unwrap();
-            };
+            });
         });
     }
 }
