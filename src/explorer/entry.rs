@@ -2,11 +2,13 @@ use std::{
     ffi::OsString,
     fs,
     path::{Path, PathBuf},
+    ptr::eq,
 };
 
 use super::enums;
 use enums::EntryType;
 
+#[derive(Debug)]
 pub struct Entry {
     entry_type: EntryType,
     name: Box<OsString>,
@@ -31,23 +33,16 @@ impl Entry {
             None => return Err(Error::FaultyName("The folder name is faulty!".to_owned())),
         };
 
-        // get EntryType
-        let entry_type: EntryType;
-        if path.is_dir() {
-            entry_type = EntryType::Directory;
-        } else if path.is_file() {
-            entry_type = EntryType::File;
-        } else if path.is_symlink() {
-            entry_type = EntryType::Link;
-        } else {
-            entry_type = EntryType::Unknown;
-        };
+        let entry_type = Entry::get_entry_type_from_path(&path);
 
         // get has_children
-        let has_children = match fs::read_dir(path) {
-            Ok(children) => children.count() > 0,
-            Err(e) => return Err(Error::IO(e)),
-        };
+        let mut has_children = false;
+        if eq(&entry_type, &EntryType::Directory) {
+            has_children = match fs::read_dir(path) {
+                Ok(children) => children.count() > 0,
+                Err(e) => return Err(Error::IO(e)),
+            };
+        }
 
         Ok(Self {
             entry_type,
@@ -84,6 +79,18 @@ impl Entry {
 
     pub fn has_children(&self) -> bool {
         self.has_children
+    }
+
+    pub fn get_entry_type_from_path(path: &Path) -> EntryType {
+        if path.is_dir() {
+            return EntryType::Directory;
+        } else if path.is_file() {
+            return EntryType::File;
+        } else if path.is_symlink() {
+            return EntryType::Link;
+        } else {
+            return EntryType::Unknown;
+        };
     }
 }
 
