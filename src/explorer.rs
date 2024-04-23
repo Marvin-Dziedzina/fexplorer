@@ -17,7 +17,7 @@ impl Explorer {
     pub fn new(path: &Path) -> Result<Self, io::Error> {
         let entries = match Explorer::get_entries_from_path(&path) {
             Ok(entries) => Box::new(entries),
-            Err(e) => return Result::Err(e),
+            Err(e) => return Err(e),
         };
 
         Ok(Self {
@@ -96,7 +96,7 @@ impl Explorer {
         };
 
         self.set_path(&path)?;
-
+        
         Ok(())
     }
 }
@@ -107,7 +107,7 @@ impl Default for Explorer {
         let entries = Explorer::get_entries_from_path(&path).unwrap();
 
         Self {
-            path: path.clone(),
+            path,
             entries: Box::new(entries),
         }
     }
