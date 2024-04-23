@@ -1,6 +1,7 @@
 use std::env;
 use std::path::{Path, PathBuf};
 
+use crate::explorer::enums::EntryType;
 use crate::explorer::Explorer;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -50,17 +51,48 @@ impl eframe::App for Fexplorer {
             // The top panel is often a good place for a menu bar:
 
             egui::menu::bar(ui, |ui| {
-                // NOTE: no File->Quit on web pages!
-                let is_web = cfg!(target_arch = "wasm32");
-                if !is_web {
-                    ui.menu_button("<-", |ui| {});
-                    ui.add_space(16.0);
-                }
+                if ui.button("<-").clicked() {
+                    match self.explorer.set_to_parent() {
+                        Ok(_) => (),
+                        Err(_) => return,
+                    };
+                };
+
+                ui.add_space(16.0);
             });
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
+            let mut change_path = false;
+            let mut rel_path: Box<PathBuf> = Box::new(PathBuf::new());
+
+            for entry in self.explorer.get_entries() {
+                let name = format!(
+                    "[{}] {}",
+                    get_entry_type(entry.get_type()),
+                    entry.get_name().to_str().unwrap()
+                );
+
+                if ui.button(name.clone()).clicked() {
+                    change_path = true;
+                    rel_path = entry.get_rel_path().unwrap();
+                    break;
+                };
+            }
+
+            if change_path {
+                self.explorer.add_path(&rel_path).unwrap();
+            };
         });
+    }
+}
+
+fn get_entry_type(entry_type: &EntryType) -> String {
+    match entry_type {
+        EntryType::Directory => String::from("Directory"),
+        EntryType::File => String::from("File"),
+        EntryType::Link => String::from("Link"),
+        _ => String::from("Unknown"),
     }
 }
