@@ -1,19 +1,22 @@
+use std::env;
 use std::path::{Path, PathBuf};
 use std::{fs, io};
 
-mod entry;
-mod enums;
+pub mod entry;
+pub mod enums;
 
 use entry::Entry;
 
+use self::enums::EntryType;
+
 pub struct Explorer {
     path: PathBuf,
-    entries: Vec<Entry>,
+    entries: Box<Vec<Entry>>,
 }
 impl Explorer {
     pub fn new(path: &Path) -> Result<Self, io::Error> {
         let entries = match Explorer::get_entries_from_path(&path) {
-            Ok(entries) => entries,
+            Ok(entries) => Box::new(entries),
             Err(e) => return Result::Err(e),
         };
 
@@ -53,7 +56,7 @@ impl Explorer {
 
     fn update_entries(&mut self) -> Result<(), io::Error> {
         self.entries = match Explorer::get_entries_from_path(&self.path) {
-            Ok(entries) => entries,
+            Ok(entries) => Box::new(entries),
             Err(e) => return Err(e),
         };
 
@@ -70,9 +73,14 @@ impl Explorer {
     }
 
     pub fn add_path(&mut self, path: &Path) -> Result<(), io::Error> {
-        match self.set_path(&self.path.join(path)) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e),
+        match Entry::get_entry_type_from_path(path) {
+            EntryType::Directory => match self.set_path(&self.path.join(path)) {
+                Ok(_) => Ok(()),
+                Err(e) => Err(e),
+            },
+            EntryType::File => Ok(()),
+            EntryType::Link => Ok(()),
+            EntryType::Unknown => Ok(()),
         }
     }
 
@@ -88,6 +96,18 @@ impl Explorer {
         self.set_path(&path)?;
 
         Ok(())
+    }
+}
+
+impl Default for Explorer {
+    fn default() -> Self {
+        let path = env::current_dir().unwrap();
+        let entries = Explorer::get_entries_from_path(&path).unwrap();
+
+        Self {
+            path: path.clone(),
+            entries: Box::new(entries),
+        }
     }
 }
 
@@ -111,13 +131,13 @@ mod tests {
 
     #[test]
     fn new() {
-        let explorer = Explorer::new(Path::new("/home")).unwrap();
+        let explorer = Explorer::new(Path::new(&env::current_dir().unwrap())).unwrap();
         print_entries(&explorer);
     }
 
     #[test]
     fn test_parent() {
-        let mut explorer = Explorer::new(Path::new("/home")).unwrap();
+        let mut explorer = Explorer::new(Path::new(&env::current_dir().unwrap())).unwrap();
 
         explorer.set_to_parent().unwrap();
         print_entries(&explorer);
@@ -125,7 +145,7 @@ mod tests {
 
     #[test]
     fn add_path() {
-        let mut explorer = Explorer::new(Path::new("/home/xcf/Documents")).unwrap();
+        let mut explorer = Explorer::new(Path::new(&env::current_dir().unwrap())).unwrap();
         let entry = explorer.get_entries().get(0).unwrap();
 
         let rel_path = entry.get_rel_path().unwrap();
