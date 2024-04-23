@@ -73,14 +73,16 @@ impl Explorer {
     }
 
     pub fn add_path(&mut self, rel_path: &Path) -> Result<(), io::Error> {
-        match Entry::get_entry_type_from_path(rel_path) {
-            EntryType::Directory => match self.set_path(&self.path.join(rel_path)) {
+        let path = self.path.join(rel_path);
+
+        match Entry::get_entry_type_from_path(&path) {
+            EntryType::Directory => match self.set_path(&path) {
                 Ok(_) => Ok(()),
                 Err(e) => Err(e),
             },
-            EntryType::File => Ok(()),
-            EntryType::Link => Ok(()),
-            EntryType::Unknown => Ok(()),
+            EntryType::File => todo!(),
+            EntryType::Link => todo!(),
+            EntryType::Unknown => todo!(),
         }
     }
 
