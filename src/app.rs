@@ -59,6 +59,9 @@ impl eframe::App for Fexplorer {
                 };
 
                 ui.add_space(16.0);
+
+                let path = self.explorer.get_path().to_string_lossy();
+                ui.label(path);
             });
         });
 
