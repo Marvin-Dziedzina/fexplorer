@@ -15,7 +15,7 @@ pub struct Fexplorer {
 impl Default for Fexplorer {
     fn default() -> Self {
         Self {
-            explorer: Explorer::new(&env::current_dir().unwrap()).unwrap(),
+            explorer: Explorer::default(),
         }
     }
 }
