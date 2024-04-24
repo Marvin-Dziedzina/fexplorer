@@ -4,6 +4,7 @@ use std::{fs, io};
 
 pub mod entry;
 pub mod enums;
+pub mod error;
 
 use entry::Entry;
 

@@ -5,7 +5,7 @@ use std::{
     ptr::eq,
 };
 
-use super::enums;
+use super::{enums, error::Error};
 use enums::EntryType;
 
 #[derive(Debug)]
@@ -92,12 +92,4 @@ impl Entry {
             return EntryType::Unknown;
         };
     }
-}
-
-#[derive(Debug)]
-pub enum Error {
-    PathDoesNotExist(String),
-    FaultyName(String),
-    ConversionFailure(String),
-    IO(std::io::Error),
 }
