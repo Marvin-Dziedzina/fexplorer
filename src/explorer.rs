@@ -5,10 +5,11 @@ use std::{fs, io};
 pub mod entry;
 pub mod enums;
 pub mod error;
-
-use entry::Entry;
+pub mod traits;
 
 use self::enums::{EntryType, ErrorAddPath};
+use entry::Entry;
+use traits::BasicEntry;
 
 pub struct Explorer {
     path: PathBuf,

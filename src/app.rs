@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use crate::explorer::enums::EntryType;
+use crate::explorer::traits::BasicEntry;
 use crate::explorer::Explorer;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.

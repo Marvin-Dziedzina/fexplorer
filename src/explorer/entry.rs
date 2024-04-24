@@ -8,6 +8,8 @@ use std::{
 use super::{enums, error::Error};
 use enums::EntryType;
 
+use super::traits::BasicEntry;
+
 #[derive(Debug)]
 pub struct Entry {
     entry_type: EntryType,
@@ -15,8 +17,8 @@ pub struct Entry {
     path: Box<PathBuf>,
     has_children: bool,
 }
-impl Entry {
-    pub fn new(path: &PathBuf) -> Result<Self, Error> {
+impl BasicEntry for Entry {
+    fn new(path: &PathBuf) -> Result<Self, Error> {
         match path.try_exists() {
             Ok(_) => (),
             Err(_) => {
@@ -52,19 +54,19 @@ impl Entry {
         })
     }
 
-    pub fn get_type(&self) -> &EntryType {
+    fn get_type(&self) -> &EntryType {
         &self.entry_type
     }
 
-    pub fn get_name(&self) -> Box<OsString> {
+    fn get_name(&self) -> Box<OsString> {
         self.name.clone()
     }
 
-    pub fn get_path(&self) -> Box<PathBuf> {
+    fn get_path(&self) -> Box<PathBuf> {
         self.path.clone()
     }
 
-    pub fn get_rel_path(&self) -> Result<Box<PathBuf>, Error> {
+    fn get_rel_path(&self) -> Result<Box<PathBuf>, Error> {
         let name = match self.name.clone().into_string() {
             Ok(name) => name,
             Err(_) => {
@@ -77,19 +79,7 @@ impl Entry {
         Ok(Box::new(Path::new("").join(name)))
     }
 
-    pub fn has_children(&self) -> bool {
+    fn has_children(&self) -> bool {
         self.has_children
-    }
-
-    pub fn get_entry_type_from_path(path: &Path) -> EntryType {
-        if path.is_dir() {
-            return EntryType::Directory;
-        } else if path.is_file() {
-            return EntryType::File;
-        } else if path.is_symlink() {
-            return EntryType::Link;
-        } else {
-            return EntryType::Unknown;
-        };
     }
 }
