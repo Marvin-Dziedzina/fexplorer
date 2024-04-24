@@ -7,7 +7,7 @@ pub mod enums;
 
 use entry::Entry;
 
-use self::enums::EntryType;
+use self::enums::{EntryType, ErrorAddPath};
 
 pub struct Explorer {
     path: PathBuf,
@@ -72,15 +72,31 @@ impl Explorer {
         }
     }
 
-    pub fn add_path(&mut self, rel_path: &Path) -> Result<(), io::Error> {
+    pub fn add_path(&mut self, rel_path: &Path) -> Result<(), ErrorAddPath> {
         let path = self.path.join(rel_path);
 
         match Entry::get_entry_type_from_path(&path) {
             EntryType::Directory => match self.set_path(&path) {
                 Ok(_) => Ok(()),
-                Err(e) => Err(e),
+                Err(e) => Err(ErrorAddPath::IO(e)),
             },
-            EntryType::File => todo!(),
+            EntryType::File => {
+                let mut errors = Vec::new();
+
+                for mut command in open::commands(path) {
+                    match command.status() {
+                        Ok(_) => {
+                            return Ok(());
+                        }
+                        Err(e) => {
+                            errors.push(e);
+                            continue;
+                        }
+                    }
+                }
+
+                Err(ErrorAddPath::IoVec(errors))
+            }
             EntryType::Link => todo!(),
             EntryType::Unknown => todo!(),
         }
@@ -96,7 +112,7 @@ impl Explorer {
         };
 
         self.set_path(&path)?;
-        
+
         Ok(())
     }
 }

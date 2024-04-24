@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, io};
 
 #[derive(Debug)]
 pub enum EntryType {
@@ -16,4 +16,11 @@ impl fmt::Display for EntryType {
             _ => write!(f, "Unknown"),
         }
     }
+}
+
+#[derive(Debug)]
+pub enum ErrorAddPath {
+    General(String),
+    IO(io::Error),
+    IoVec(Vec<io::Error>),
 }
