@@ -4,12 +4,10 @@ use std::{fs, io};
 
 pub mod entry;
 pub mod enums;
-pub mod error;
-pub mod traits;
 
 use self::enums::{EntryType, ErrorAddPath};
+use crate::file_system::traits::{self, BasicEntry};
 use entry::Entry;
-use traits::BasicEntry;
 
 pub struct Explorer {
     path: PathBuf,
@@ -45,7 +43,7 @@ impl Explorer {
                 Err(_) => continue,
             };
 
-            let entry = match Entry::new(&entry.path()) {
+            let entry = match Entry::new(entry.path()) {
                 Ok(entry) => entry,
                 Err(_) => continue,
             };
@@ -142,7 +140,7 @@ mod tests {
             println!(
                 "[{}] {}, {}, has_children: {}",
                 entry.get_type(),
-                entry.get_name().into_string().unwrap(),
+                entry.get_name().clone(),
                 entry.get_path().to_string_lossy(),
                 entry.has_children(),
             );

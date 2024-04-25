@@ -1,6 +1,8 @@
 use std::{fmt, io};
 
-#[derive(Debug)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize)]
 pub enum EntryType {
     Directory,
     File,

@@ -1,20 +1,18 @@
-use std::{
-    ffi::OsString,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
-use super::{enums::EntryType, error::Error};
+use super::error::Error;
+use crate::explorer::enums::EntryType;
 
 pub trait BasicEntry {
-    fn new(path: &PathBuf) -> Result<Self, Error>
+    fn new(path: PathBuf) -> Result<Self, Error>
     where
         Self: Sized;
 
     fn get_type(&self) -> &EntryType;
 
-    fn get_name(&self) -> Box<OsString>;
+    fn get_name(&self) -> String;
 
-    fn get_path(&self) -> Box<PathBuf>;
+    fn get_path(&self) -> &Box<PathBuf>;
 
     fn get_rel_path(&self) -> Result<Box<PathBuf>, Error>;
 

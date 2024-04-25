@@ -1,8 +1,13 @@
+use std::fs;
+use std::io::Write;
 use std::path::PathBuf;
 
 use crate::explorer::enums::EntryType;
-use crate::explorer::traits::BasicEntry;
 use crate::explorer::Explorer;
+use crate::file_system::traits::BasicEntry;
+use crate::search::search_entry::SearchEntry;
+
+use serde_json;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -10,12 +15,16 @@ use crate::explorer::Explorer;
 pub struct Fexplorer {
     #[serde(skip)] // This how you opt-out of serialization of a field
     explorer: Explorer,
+
+    #[serde(skip)]
+    is_first_iteration: bool,
 }
 
 impl Default for Fexplorer {
     fn default() -> Self {
         Self {
             explorer: Explorer::default(),
+            is_first_iteration: true,
         }
     }
 }
@@ -44,6 +53,17 @@ impl eframe::App for Fexplorer {
 
     /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if self.is_first_iteration {
+            let x =
+                SearchEntry::new(PathBuf::from("/home/xcf/Documents/Code/rust/fexplorer")).unwrap();
+            let xstr = serde_json::to_string_pretty(&x).unwrap();
+
+            let mut file = fs::File::create("out.json").unwrap();
+            file.write_all(xstr.as_bytes()).unwrap();
+
+            self.is_first_iteration = false;
+        };
+
         // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.
         // For inspiration and more examples, go to https://emilk.github.io/egui
 
@@ -75,7 +95,7 @@ impl eframe::App for Fexplorer {
                     let name = format!(
                         "[{}] {}",
                         get_entry_type(entry.get_type()),
-                        entry.get_name().to_str().unwrap()
+                        entry.get_name()
                     );
 
                     if ui.button(name.clone()).clicked() {

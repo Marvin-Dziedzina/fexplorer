@@ -5,20 +5,20 @@ use std::{
     ptr::eq,
 };
 
-use super::{enums, error::Error};
-use enums::EntryType;
-
+use super::enums;
 use super::traits::BasicEntry;
+use crate::file_system::error::Error;
+use enums::EntryType;
 
 #[derive(Debug)]
 pub struct Entry {
     entry_type: EntryType,
-    name: Box<OsString>,
+    name: String,
     path: Box<PathBuf>,
     has_children: bool,
 }
 impl BasicEntry for Entry {
-    fn new(path: &PathBuf) -> Result<Self, Error> {
+    fn new(path: PathBuf) -> Result<Self, Error> {
         match path.try_exists() {
             Ok(_) => (),
             Err(_) => {
@@ -35,12 +35,12 @@ impl BasicEntry for Entry {
             None => return Err(Error::FaultyName("The folder name is faulty!".to_owned())),
         };
 
-        let entry_type = Entry::get_entry_type_from_path(&path);
+        let entry_type = Self::get_entry_type_from_path(&path);
 
         // get has_children
         let mut has_children = false;
         if eq(&entry_type, &EntryType::Directory) {
-            has_children = match fs::read_dir(path) {
+            has_children = match fs::read_dir(path.clone()) {
                 Ok(children) => children.count() > 0,
                 Err(e) => return Err(Error::IO(e)),
             };
@@ -48,9 +48,9 @@ impl BasicEntry for Entry {
 
         Ok(Self {
             entry_type,
-            name: Box::new(name.to_owned()),
+            name: name.to_string_lossy().to_string(),
             path: Box::new(path.to_owned()),
-            has_children: has_children,
+            has_children,
         })
     }
 
@@ -58,23 +58,16 @@ impl BasicEntry for Entry {
         &self.entry_type
     }
 
-    fn get_name(&self) -> Box<OsString> {
+    fn get_name(&self) -> String {
         self.name.clone()
     }
 
-    fn get_path(&self) -> Box<PathBuf> {
-        self.path.clone()
+    fn get_path(&self) -> &Box<PathBuf> {
+        &self.path
     }
 
     fn get_rel_path(&self) -> Result<Box<PathBuf>, Error> {
-        let name = match self.name.clone().into_string() {
-            Ok(name) => name,
-            Err(_) => {
-                return Err(Error::ConversionFailure(
-                    "Could not convert OsString to String!".to_owned(),
-                ))
-            }
-        };
+        let name = self.name.clone();
 
         Ok(Box::new(Path::new("").join(name)))
     }
