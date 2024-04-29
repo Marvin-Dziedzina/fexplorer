@@ -39,7 +39,7 @@ impl BasicEntry for Entry {
         // get has_children
         let mut has_children = false;
         if eq(&entry_type, &EntryType::Directory) {
-            has_children = match fs::read_dir(path.clone()) {
+            has_children = match fs::read_dir(path) {
                 Ok(children) => children.count() > 0,
                 Err(e) => return Err(Error::IO(e)),
             };

@@ -2,7 +2,6 @@ use std::{
     collections::HashMap,
     fs,
     path::{Path, PathBuf},
-    ptr::eq,
 };
 
 use crate::{explorer::enums::EntryType, file_system::traits::BasicEntry};
@@ -17,7 +16,10 @@ impl Search {
     pub fn index_path(path: &Path) -> HashMap<PathBuf, SearchEntry> {
         let entries = match fs::read_dir(path) {
             Ok(entries) => entries,
-            Err(e) => panic!("Error: {}", e),
+            Err(e) => {
+                println!("Error: {}", e);
+                return HashMap::new();
+            }
         };
 
         let mut search_entries = HashMap::new();
