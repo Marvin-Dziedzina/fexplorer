@@ -17,7 +17,7 @@ impl Search {
         let entries = match fs::read_dir(path) {
             Ok(entries) => entries,
             Err(e) => {
-                println!("Error: {}", e);
+                println!("Error on {}: {}", path.to_string_lossy(), e);
                 return HashMap::new();
             }
         };
