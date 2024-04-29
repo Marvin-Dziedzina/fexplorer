@@ -1,11 +1,11 @@
-use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
+use std::{fs, time};
 
 use crate::explorer::enums::EntryType;
 use crate::explorer::Explorer;
 use crate::file_system::traits::BasicEntry;
-use crate::search::search_entry::SearchEntry;
+use crate::search::Search;
 
 use serde_json;
 
@@ -54,12 +54,19 @@ impl eframe::App for Fexplorer {
     /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         if self.is_first_iteration {
-            let x =
-                SearchEntry::new(PathBuf::from("/home/xcf/Documents/Code/rust/fexplorer")).unwrap();
+            let now = time::SystemTime::now();
+            let x = Search::index_path(&PathBuf::from("/home/xcf/Documents"));
+            let time_needed = now.elapsed().unwrap();
             let xstr = serde_json::to_string_pretty(&x).unwrap();
 
             let mut file = fs::File::create("out.json").unwrap();
             file.write_all(xstr.as_bytes()).unwrap();
+
+            println!(
+                "Secs: {};\nms: {}",
+                time_needed.as_secs(),
+                time_needed.as_millis()
+            );
 
             self.is_first_iteration = false;
         };
@@ -89,13 +96,13 @@ impl eframe::App for Fexplorer {
             // The central panel the region left after adding TopPanel's and SidePanel's
             egui::ScrollArea::vertical().show(ui, |ui| {
                 let mut change_path = false;
-                let mut rel_path: Box<PathBuf> = Box::new(PathBuf::new());
+                let mut rel_path: PathBuf = PathBuf::new();
 
                 for entry in self.explorer.get_entries() {
                     let name = format!(
                         "[{}] {}",
                         get_entry_type(entry.get_type()),
-                        entry.get_name()
+                        entry.get_name().unwrap()
                     );
 
                     if ui.button(name.clone()).clicked() {

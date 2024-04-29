@@ -1,3 +1,5 @@
+use std::convert::Infallible;
+
 #[derive(Debug)]
 pub enum Error {
     Generic(String),
@@ -5,4 +7,5 @@ pub enum Error {
     FaultyName(String),
     ConversionFailure(String),
     IO(std::io::Error),
+    Infallible(Infallible),
 }

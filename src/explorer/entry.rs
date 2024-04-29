@@ -1,5 +1,4 @@
 use std::{
-    ffi::OsString,
     fs,
     path::{Path, PathBuf},
     ptr::eq,
@@ -14,11 +13,11 @@ use enums::EntryType;
 pub struct Entry {
     entry_type: EntryType,
     name: String,
-    path: Box<PathBuf>,
+    path: PathBuf,
     has_children: bool,
 }
 impl BasicEntry for Entry {
-    fn new(path: PathBuf) -> Result<Self, Error> {
+    fn new(path: &Path) -> Result<Self, Error> {
         match path.try_exists() {
             Ok(_) => (),
             Err(_) => {
@@ -49,7 +48,7 @@ impl BasicEntry for Entry {
         Ok(Self {
             entry_type,
             name: name.to_string_lossy().to_string(),
-            path: Box::new(path.to_owned()),
+            path: path.to_owned(),
             has_children,
         })
     }
@@ -58,18 +57,18 @@ impl BasicEntry for Entry {
         &self.entry_type
     }
 
-    fn get_name(&self) -> String {
-        self.name.clone()
+    fn get_name(&self) -> Option<String> {
+        Some(self.name.clone())
     }
 
-    fn get_path(&self) -> &Box<PathBuf> {
-        &self.path
+    fn get_path(&self) -> PathBuf {
+        self.path.clone()
     }
 
-    fn get_rel_path(&self) -> Result<Box<PathBuf>, Error> {
+    fn get_rel_path(&self) -> Result<PathBuf, Error> {
         let name = self.name.clone();
 
-        Ok(Box::new(Path::new("").join(name)))
+        Ok(Path::new("").join(name))
     }
 
     fn has_children(&self) -> bool {

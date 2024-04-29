@@ -1,8 +1,6 @@
 use std::{
-    ffi::OsString,
-    fs,
     path::{Path, PathBuf},
-    thread::{self, JoinHandle},
+    str::FromStr,
 };
 
 use serde::{Deserialize, Serialize};
@@ -11,21 +9,21 @@ use crate::explorer::enums::EntryType;
 use crate::file_system::error::Error;
 use crate::file_system::traits::BasicEntry;
 
-use super::SearchEntryThreadData;
+use super::error::SearchError;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SearchEntry {
     entry_type: EntryType,
-    name: String,
-    path: Box<PathBuf>,
-    has_children: bool,
-    children: Vec<SearchEntry>,
+    path: PathBuf,
+    children: Vec<PathBuf>,
 }
 impl BasicEntry for SearchEntry {
-    fn new(path: PathBuf) -> Result<Self, Error>
+    fn new(path: &Path) -> Result<Self, Error>
     where
         Self: Sized,
     {
+        let path = path.to_path_buf();
+
         match path.try_exists() {
             Ok(_) => (),
             Err(_) => {
@@ -36,31 +34,13 @@ impl BasicEntry for SearchEntry {
             }
         };
 
-        // get name
-        let name = match path.file_name() {
-            Some(name) => name,
-            None => return Err(Error::FaultyName("The folder name is faulty!".to_owned())),
-        };
-
         // get entry type
         let entry_type = Self::get_entry_type_from_path(&path);
 
-        // get entries
-        let children_join_handle = Self::index_children(path.clone());
-        let children = match children_join_handle.join() {
-            Ok(children) => children,
-            Err(_) => return Err(Error::Generic(String::from("Could not get children!"))),
-        };
-
-        // get has_children
-        let has_children = children.len() > 0;
-
         Ok(Self {
             entry_type,
-            name: name.to_string_lossy().to_string(),
-            path: Box::new(path.to_owned()),
-            has_children,
-            children,
+            path,
+            children: Vec::new(),
         })
     }
 
@@ -68,107 +48,65 @@ impl BasicEntry for SearchEntry {
         &self.entry_type
     }
 
-    fn get_name(&self) -> String {
-        self.name.clone()
+    fn get_name(&self) -> Option<String> {
+        match self.path.file_name() {
+            Some(name) => Some(name.to_string_lossy().to_string()),
+            None => None,
+        }
     }
 
-    fn get_path(&self) -> &Box<PathBuf> {
-        &self.path
+    fn get_path(&self) -> PathBuf {
+        self.path.clone()
     }
 
-    fn get_rel_path(&self) -> Result<Box<PathBuf>, Error> {
-        let name = self.name.clone();
+    fn get_rel_path(&self) -> Result<PathBuf, Error> {
+        let name = match self.get_name() {
+            Some(name) => name.clone(),
+            None => return Err(Error::Generic(String::from("Could not get name!"))),
+        };
+        let rel_path = match PathBuf::from_str(&name) {
+            Ok(rel_path) => rel_path,
+            Err(e) => return Err(Error::Infallible(e)),
+        };
 
-        Ok(Box::new(Path::new("").join(name)))
+        Ok(rel_path)
     }
 
     fn has_children(&self) -> bool {
-        self.has_children
+        self.children.len() > 0
     }
 }
 
 impl SearchEntry {
-    fn from_children(path: &Path, children: Vec<SearchEntry>) -> Result<Self, Error> {
-        match path.try_exists() {
-            Ok(_) => (),
-            Err(_) => {
-                return Err(Error::PathDoesNotExist(format!(
-                    "'{}' does not exist!",
-                    path.to_string_lossy()
+    /// Add a child. The child argument needs to be the relpath to the child.
+    pub fn add_child(&mut self, child: PathBuf) {
+        self.children.push(child);
+    }
+
+    pub fn remove_child(&mut self, i: usize) {
+        self.children.swap_remove(i);
+    }
+
+    pub fn remove_child_by_value(&mut self, path: PathBuf) -> Result<(), SearchError> {
+        let mut index = None;
+        for (i, v) in self.children.iter().enumerate() {
+            if path.to_string_lossy() != v.to_string_lossy() {
+                continue;
+            }
+
+            index = Some(i);
+            break;
+        }
+
+        match index {
+            Some(index) => self.children.remove(index),
+            None => {
+                return Err(SearchError::ChildNotFound(String::from(
+                    "Could not find child!",
                 )))
             }
         };
 
-        // get name
-        let name = match path.file_name() {
-            Some(name) => name,
-            None => return Err(Error::FaultyName("The folder name is faulty!".to_owned())),
-        };
-
-        let entry_type = Self::get_entry_type_from_path(&path);
-
-        // get has_children
-        let has_children = children.len() > 0;
-
-        Ok(Self {
-            entry_type,
-            name: name.to_string_lossy().to_string(),
-            path: Box::new(path.to_owned()),
-            has_children,
-            children,
-        })
-    }
-
-    fn index_children(path: PathBuf) -> JoinHandle<Vec<SearchEntry>> {
-        thread::spawn(move || {
-            let mut children: Vec<SearchEntry> = Vec::new();
-            let mut threads: Vec<SearchEntryThreadData> = Vec::new();
-
-            let read_dir = match fs::read_dir(&path) {
-                Ok(read_dir) => read_dir,
-                Err(e) => panic!("Panic: {}", e),
-            };
-
-            for entry in read_dir {
-                let entry = match entry {
-                    Ok(entry) => entry,
-                    Err(_) => continue,
-                };
-
-                let entry_path = entry.path();
-
-                if entry_path.is_dir() {
-                    threads.push(SearchEntryThreadData::new(
-                        entry_path.clone(),
-                        Self::index_children(entry_path),
-                    ));
-                    continue;
-                };
-
-                let search_entry = match Self::new(entry_path) {
-                    Ok(search_entry) => search_entry,
-                    Err(_) => continue,
-                };
-
-                children.push(search_entry);
-            }
-
-            for search_entry_thread_data in threads {
-                let curr_path = search_entry_thread_data.get_path();
-
-                let search_entries =
-                    match search_entry_thread_data.get_children_join_handle().join() {
-                        Ok(search_entries) => search_entries,
-                        Err(_) => continue,
-                    };
-
-                match Self::from_children(&curr_path, search_entries) {
-                    Ok(search_entry) => children.push(search_entry),
-                    Err(_) => continue,
-                };
-            }
-
-            return children;
-        })
+        Ok(())
     }
 }

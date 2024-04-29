@@ -43,7 +43,7 @@ impl Explorer {
                 Err(_) => continue,
             };
 
-            let entry = match Entry::new(entry.path()) {
+            let entry = match Entry::new(&entry.path()) {
                 Ok(entry) => entry,
                 Err(_) => continue,
             };
@@ -140,7 +140,7 @@ mod tests {
             println!(
                 "[{}] {}, {}, has_children: {}",
                 entry.get_type(),
-                entry.get_name().clone(),
+                entry.get_name().unwrap().clone(),
                 entry.get_path().to_string_lossy(),
                 entry.has_children(),
             );
