@@ -55,7 +55,7 @@ impl eframe::App for Fexplorer {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         if self.is_first_iteration {
             let now = time::SystemTime::now();
-            let x = Search::index_path(&PathBuf::from("/home/xcf"));
+            let x = Search::index_path(&PathBuf::from("/home/xcf/"));
             let time_needed = now.elapsed().unwrap();
             let xstr = serde_json::to_string_pretty(&x).unwrap();
 

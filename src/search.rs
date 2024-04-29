@@ -4,6 +4,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use egui::TextBuffer;
+
 use crate::{explorer::enums::EntryType, file_system::traits::BasicEntry};
 
 use self::search_entry::SearchEntry;
@@ -48,7 +50,11 @@ impl Search {
                     };
 
                     if &parent_path == &path {
-                        search_entry.add_child(i.clone());
+                        let rel_path = match i.file_name().ok_or(i) {
+                            Ok(rel_string) => PathBuf::from(rel_string.to_string_lossy().as_str()),
+                            Err(_) => i.clone(),
+                        };
+                        search_entry.add_child(rel_path);
                     };
                 }
 
