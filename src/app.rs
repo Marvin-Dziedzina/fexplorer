@@ -1,11 +1,13 @@
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::{fs, time};
 
 use crate::explorer::enums::EntryType;
 use crate::explorer::Explorer;
 use crate::file_system::traits::BasicEntry;
-use crate::search::Search;
+use crate::search::entries;
+use crate::search::entries::directory::Directory;
+use crate::search::entries::traits::PathTrait;
 
 use serde_json;
 
@@ -55,7 +57,7 @@ impl eframe::App for Fexplorer {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         if self.is_first_iteration {
             let now = time::SystemTime::now();
-            let x = Search::index_path(&PathBuf::from("/home/xcf/"));
+            let x = entries::index_directories(Path::new("/home/xcf/Documents")).unwrap();
             let time_needed = now.elapsed().unwrap();
             let xstr = serde_json::to_string_pretty(&x).unwrap();
 
