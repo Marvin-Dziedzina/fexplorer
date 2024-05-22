@@ -10,13 +10,15 @@ mod child;
 pub use child::Child;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+type Name = String;
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Directory {
     path: Box<PathBuf>,
-    children: HashMap<String, Child>,
+    children: HashMap<Name, Child>,
 }
 impl Directory {
-    pub fn new(path: &Path, children: Option<HashMap<String, Child>>) -> Self {
+    pub fn new(path: &Path, children: Option<HashMap<Name, Child>>) -> Self {
         let children = match children {
             Some(children) => children,
             None => HashMap::new(),
@@ -28,7 +30,7 @@ impl Directory {
         }
     }
 
-    pub fn get_children(&self) -> &HashMap<String, Child> {
+    pub fn get_children(&self) -> &HashMap<Name, Child> {
         &self.children
     }
 
@@ -46,6 +48,14 @@ impl Directory {
         let child: Child = Child::new(Path::new(&name));
 
         self.children.insert(name, child);
+    }
+
+    pub fn add_children(&mut self, children: Vec<PathBuf>) {
+        for child_path in children {
+            let child_dir = Self::new(&child_path, None);
+
+            self.add_child(&child_dir);
+        };
     }
 }
 

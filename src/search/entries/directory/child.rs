@@ -4,7 +4,7 @@ use super::{Directory, PathTrait};
 
 use std::path::{Path, PathBuf};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Child {
     dir_name: Box<PathBuf>,
 }

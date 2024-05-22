@@ -1,13 +1,12 @@
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
+use std::str::FromStr;
 use std::{fs, time};
 
 use crate::explorer::enums::EntryType;
 use crate::explorer::Explorer;
 use crate::file_system::traits::BasicEntry;
-use crate::search::entries;
-use crate::search::entries::directory::Directory;
-use crate::search::entries::traits::PathTrait;
+use crate::search::entries::Indexer;
 
 use serde_json;
 
@@ -56,14 +55,17 @@ impl eframe::App for Fexplorer {
     /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         if self.is_first_iteration {
+            let indexer = Indexer::new(&PathBuf::from_str("/").unwrap());
+
             let now = time::SystemTime::now();
-            let x = entries::index_directories(Path::new("/home/xcf/Documents")).unwrap();
+            let result = indexer.index_folders().unwrap();
             let time_needed = now.elapsed().unwrap();
-            let xstr = serde_json::to_string_pretty(&x).unwrap();
+
+            let xstr = serde_json::to_string_pretty(&result).unwrap();
 
             let mut file = fs::File::create("out.json").unwrap();
             file.write_all(xstr.as_bytes()).unwrap();
-
+            
             println!(
                 "Secs: {};\nms: {}",
                 time_needed.as_secs(),

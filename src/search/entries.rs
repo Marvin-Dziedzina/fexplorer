@@ -5,7 +5,8 @@ pub mod traits;
 
 use std::{
     collections::HashMap,
-    fs, io,
+    fs::{self, ReadDir},
+    io,
     path::{Path, PathBuf},
 };
 
@@ -14,56 +15,128 @@ pub use file::File;
 pub use link::Link;
 pub use traits::PathTrait;
 
-pub fn index_directories(start: &Path) -> Result<HashMap<PathBuf, Directory>, io::Error> {
-    let dirs = match fs::read_dir(start) {
-        Ok(dirs) => dirs,
-        Err(e) => return Err(e),
-    };
+#[derive(Debug)]
+pub struct Indexer {
+    path: PathBuf,
+}
 
-    let mut map = HashMap::new();
-    for entry in dirs {
-        let entry = match entry {
-            Ok(entry) => entry,
-            Err(_) => continue,
-        };
-
-        let path = entry.path();
-        if !path.is_dir() {
-            continue;
-        };
-
-        let children = match index_directories(&path) {
-            Ok(children) => children,
-            Err(_) => HashMap::new(),
-        };
-
-        // add all child names to dir
-        let mut dir = Directory::new(&path, None);
-        let mut test_path = path.clone();
-        for (_, child) in &children {
-            test_path.push(child.get_name());
-
-            if test_path.is_dir() {
-                dir.add_child(child)
-            };
-
-            test_path = match test_path.parent() {
-                Some(path) => path.to_path_buf(),
-                None => test_path,
-            };
+impl Indexer {
+    pub fn new(start: &Path) -> Self {
+        Self {
+            path: start.to_path_buf(),
         }
-
-        map.insert(path, dir);
-        map.extend(children);
     }
 
-    Ok(map)
-}
+    /// Test function
+    pub fn get_paths(&self) -> HashMap<PathBuf, PathBuf> {
+        fn read_dir(path: &PathBuf) -> Result<fs::ReadDir, io::Error> {
+            match fs::read_dir(path) {
+                Ok(read_dir) => Ok(read_dir),
+                Err(e) => Err(e),
+            }
+        }
 
-pub fn index_file(start: &Path) -> HashMap<PathBuf, File> {
-    todo!()
-}
+        fn index(dirs: ReadDir, mut result: HashMap<PathBuf, PathBuf>) -> HashMap<PathBuf, PathBuf> {
+            for entry in dirs {
+                let entry = match entry {
+                    Ok(entry) => entry,
+                    Err(_) => continue,
+                };
+                
+                let path = entry.path();
+                if !path.is_dir() {
+                    continue;
+                }
+                match fs::read_link(&path) { // Check if is link
+                    Ok(_) => continue, // Is a link
+                    Err(_) => (), // Is not a link
+                };
 
-pub fn index_link(start: &Path) -> HashMap<PathBuf, Link> {
-    todo!()
+                let dirs = match read_dir(&path) {
+                    Ok(dirs) => dirs,
+                    Err(_) => continue,
+                };
+                
+                result.insert(path.clone(), path);
+                result = index(dirs, result);
+            };
+
+            result
+        }
+
+        let dirs = match read_dir(&self.path) {
+            Ok(dirs) => dirs,
+            Err(e) => panic!("Remove from source code! Error: {}", e),
+        };
+
+        index(dirs, HashMap::new())
+    }
+
+    pub fn index_folders(&self) -> Result<HashMap<PathBuf, Directory>, io::Error> {
+        fn read_dir(path: &PathBuf) -> Result<fs::ReadDir, io::Error> {
+            match fs::read_dir(path) {
+                Ok(read_dir) => Ok(read_dir),
+                Err(e) => Err(e),
+            }
+        }
+
+        fn index(dirs: ReadDir) -> (HashMap<PathBuf, Directory>, Vec<PathBuf>) {
+            let mut map = HashMap::new();
+            let mut parent_children = Vec::new();
+
+            for entry in dirs {
+                let entry = match entry {
+                    Ok(entry) => entry,
+                    Err(_) => continue,
+                };
+
+                let path = entry.path();
+                if !path.is_dir() {
+                    continue;
+                }
+                match fs::read_link(&path) { // Check if is link
+                    Ok(_) => continue, // Is a link
+                    Err(_) => (), // Is not a link
+                };
+                
+                parent_children.push(path.to_path_buf());
+
+                let child_dirs = match read_dir(&path) {
+                    Ok(child_dirs) => child_dirs,
+                    Err(_) => continue,
+                };
+
+                let (child_dirs, children) = index(child_dirs);
+
+                let mut dir = Directory::new(&path, None);
+                if !children.is_empty() {
+                    dir.add_children(children);
+                };
+                map.insert(path, dir);
+
+                if !child_dirs.is_empty() {
+                    map.extend(child_dirs);
+                };
+            };
+
+            (map, parent_children)
+        }
+
+        let dirs = match read_dir(&self.path) {
+            Ok(dirs) => dirs,
+            Err(e) => return Err(e),
+        };
+
+        let (map, _) = index(dirs);
+
+        Ok(map)
+    }
+
+    pub fn index_file(start: &Path) -> HashMap<PathBuf, File> {
+        todo!()
+    }
+
+    pub fn index_link(start: &Path) -> HashMap<PathBuf, Link> {
+        todo!()
+    }
 }
