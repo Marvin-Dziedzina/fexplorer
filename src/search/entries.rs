@@ -171,14 +171,13 @@ impl Indexer {
 
             let entry_path = entry.path();
 
-            let is_dir = entry_path.is_dir();
             // Check if is link
             let is_link = match fs::read_link(&path) {
                 Ok(_) => true,   // Is a link
                 Err(_) => false, // Is not a link
             };
 
-            if is_dir && !is_link {
+            if entry_path.is_dir() && !is_link {
                 // is directory
                 entries.push(entry_path);
             };
@@ -203,14 +202,13 @@ impl Indexer {
 
             let entry_path = entry.path();
 
-            let is_file = entry_path.is_file();
             // Check if is link
             let is_link = match fs::read_link(&path) {
                 Ok(_) => true,   // Is a link
                 Err(_) => false, // Is not a link
             };
 
-            if is_file && !is_link {
+            if entry_path.is_file() && !is_link {
                 // is file
                 entries.push(entry_path);
             };
@@ -235,18 +233,16 @@ impl Indexer {
 
             let entry_path = entry.path();
 
-            let is_dir = entry_path.is_dir();
-            let is_file = entry_path.is_file();
             // Check if is link
             let is_link = match fs::read_link(&path) {
                 Ok(_) => true,   // Is a link
                 Err(_) => false, // Is not a link
             };
 
-            if is_link && is_dir {
+            if is_link && entry_path.is_dir() {
                 // is file
                 entries.push(LinkType::Directory(entry_path));
-            } else if is_link && is_file {
+            } else if is_link && entry_path.is_file() {
                 entries.push(LinkType::File(entry_path));
             };
         }
