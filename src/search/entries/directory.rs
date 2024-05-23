@@ -1,4 +1,4 @@
-use super::traits::PathTrait;
+use super::{traits::PathTrait, Error};
 
 use std::{
     collections::HashMap,
@@ -18,16 +18,20 @@ pub struct Directory {
     children: HashMap<Name, Child>,
 }
 impl Directory {
-    pub fn new(path: &Path, children: Option<HashMap<Name, Child>>) -> Self {
+    pub fn new(path: &Path, children: Option<HashMap<Name, Child>>) -> Result<Self, Error> {
+        if !path.is_dir() {
+            return Err(Error::InvalidEntryType(String::from("Not a directory!")));
+        };
+
         let children = match children {
             Some(children) => children,
             None => HashMap::new(),
         };
 
-        Self {
+        Ok(Self {
             path: Box::new(path.to_path_buf()),
             children,
-        }
+        })
     }
 
     pub fn get_children(&self) -> &HashMap<Name, Child> {
@@ -52,10 +56,13 @@ impl Directory {
 
     pub fn add_children(&mut self, children: Vec<PathBuf>) {
         for child_path in children {
-            let child_dir = Self::new(&child_path, None);
+            let child_dir = match Self::new(&child_path, None) {
+                Ok(child_dir) => child_dir,
+                Err(e) => panic!("{}", e),
+            };
 
             self.add_child(&child_dir);
-        };
+        }
     }
 }
 

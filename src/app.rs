@@ -6,7 +6,7 @@ use std::{fs, time};
 use crate::explorer::enums::EntryType;
 use crate::explorer::Explorer;
 use crate::file_system::traits::BasicEntry;
-use crate::search::entries::Indexer;
+use crate::search::entries::{directory, Indexer, Link};
 
 use serde_json;
 
@@ -55,24 +55,33 @@ impl eframe::App for Fexplorer {
     /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         if self.is_first_iteration {
+            self.is_first_iteration = false;
+
             let indexer = Indexer::new(&PathBuf::from_str("/").unwrap());
 
             let now = time::SystemTime::now();
-            let result = indexer.index_folders().unwrap();
+
+            let directories = indexer.index_folders().unwrap();
+            let files = indexer.index_files().unwrap();
+            let links = indexer.index_links().unwrap();
+
             let time_needed = now.elapsed().unwrap();
 
-            let xstr = serde_json::to_string_pretty(&result).unwrap();
+            let dirs_str = serde_json::to_string_pretty(&directories).unwrap();
+            let files_str = serde_json::to_string_pretty(&files).unwrap();
+            let links_str = serde_json::to_string_pretty(&links).unwrap();
 
-            let mut file = fs::File::create("out.json").unwrap();
-            file.write_all(xstr.as_bytes()).unwrap();
-            
-            println!(
-                "Secs: {};\nms: {}",
-                time_needed.as_secs(),
-                time_needed.as_millis()
-            );
+            let mut dir_f = fs::File::create("dirs.json").unwrap();
+            let mut file_f = fs::File::create("files.json").unwrap();
+            let mut link_f = fs::File::create("links.json").unwrap();
 
-            self.is_first_iteration = false;
+            dir_f.write_all(dirs_str.as_bytes()).unwrap();
+            file_f.write_all(files_str.as_bytes()).unwrap();
+            link_f.write_all(links_str.as_bytes()).unwrap();
+
+            println!("Secs: {}", time_needed.as_secs_f32(),);
+            println!("Count: {}", directories.len() + files.len() + links.len());
+
         };
 
         // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.

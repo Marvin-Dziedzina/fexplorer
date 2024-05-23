@@ -1,16 +1,17 @@
 pub mod directory;
+pub mod error;
 pub mod file;
 pub mod link;
 pub mod traits;
 
 use std::{
     collections::HashMap,
-    fs::{self, ReadDir},
-    io,
+    fs,
     path::{Path, PathBuf},
 };
 
 pub use directory::{Child, Directory};
+pub use error::Error;
 pub use file::File;
 pub use link::Link;
 pub use traits::PathTrait;
@@ -19,7 +20,6 @@ pub use traits::PathTrait;
 pub struct Indexer {
     path: PathBuf,
 }
-
 impl Indexer {
     pub fn new(start: &Path) -> Self {
         Self {
@@ -27,116 +27,164 @@ impl Indexer {
         }
     }
 
-    /// Test function
-    pub fn get_paths(&self) -> HashMap<PathBuf, PathBuf> {
-        fn read_dir(path: &PathBuf) -> Result<fs::ReadDir, io::Error> {
-            match fs::read_dir(path) {
-                Ok(read_dir) => Ok(read_dir),
-                Err(e) => Err(e),
-            }
-        }
-
-        fn index(dirs: ReadDir, mut result: HashMap<PathBuf, PathBuf>) -> HashMap<PathBuf, PathBuf> {
-            for entry in dirs {
-                let entry = match entry {
-                    Ok(entry) => entry,
-                    Err(_) => continue,
-                };
-                
-                let path = entry.path();
-                if !path.is_dir() {
-                    continue;
-                }
-                match fs::read_link(&path) { // Check if is link
-                    Ok(_) => continue, // Is a link
-                    Err(_) => (), // Is not a link
-                };
-
-                let dirs = match read_dir(&path) {
-                    Ok(dirs) => dirs,
-                    Err(_) => continue,
-                };
-                
-                result.insert(path.clone(), path);
-                result = index(dirs, result);
-            };
-
-            result
-        }
-
-        let dirs = match read_dir(&self.path) {
-            Ok(dirs) => dirs,
-            Err(e) => panic!("Remove from source code! Error: {}", e),
+    fn get_folders_recursive(
+        path: &Path,
+    ) -> Result<(HashMap<PathBuf, Directory>, Vec<PathBuf>), Error> {
+        let dirs = match fs::read_dir(path) {
+            Ok(read_dir) => read_dir,
+            Err(e) => return Err(Error::IO(e)),
         };
 
-        index(dirs, HashMap::new())
+        let mut map = HashMap::new();
+        let mut parent_children = Vec::new();
+
+        for entry in dirs {
+            let entry = match entry {
+                Ok(entry) => entry,
+                Err(_) => continue,
+            };
+
+            let path = entry.path();
+            if path.is_dir() {
+                match fs::read_link(&path) {
+                    // Check if is link
+                    Ok(_) => continue, // Is a link
+                    Err(_) => (),      // Is not a link
+                };
+            } else {
+                continue;
+            }
+
+            parent_children.push(path.to_path_buf());
+
+            let (child_dirs, children) = match Self::get_folders_recursive(&path) {
+                Ok(res) => res,
+                Err(_) => continue,
+            };
+
+            let mut dir = match Directory::new(&path, None) {
+                Ok(dir) => dir,
+                Err(e) => panic!("{}", e),
+            };
+
+            dir.add_children(children);
+
+            map.insert(path, dir);
+            map.extend(child_dirs);
+        }
+
+        Ok((map, parent_children))
     }
 
-    pub fn index_folders(&self) -> Result<HashMap<PathBuf, Directory>, io::Error> {
-        fn read_dir(path: &PathBuf) -> Result<fs::ReadDir, io::Error> {
-            match fs::read_dir(path) {
-                Ok(read_dir) => Ok(read_dir),
-                Err(e) => Err(e),
-            }
-        }
-
-        fn index(dirs: ReadDir) -> (HashMap<PathBuf, Directory>, Vec<PathBuf>) {
-            let mut map = HashMap::new();
-            let mut parent_children = Vec::new();
-
-            for entry in dirs {
-                let entry = match entry {
-                    Ok(entry) => entry,
-                    Err(_) => continue,
-                };
-
-                let path = entry.path();
-                if !path.is_dir() {
-                    continue;
-                }
-                match fs::read_link(&path) { // Check if is link
-                    Ok(_) => continue, // Is a link
-                    Err(_) => (), // Is not a link
-                };
-                
-                parent_children.push(path.to_path_buf());
-
-                let child_dirs = match read_dir(&path) {
-                    Ok(child_dirs) => child_dirs,
-                    Err(_) => continue,
-                };
-
-                let (child_dirs, children) = index(child_dirs);
-
-                let mut dir = Directory::new(&path, None);
-                if !children.is_empty() {
-                    dir.add_children(children);
-                };
-                map.insert(path, dir);
-
-                if !child_dirs.is_empty() {
-                    map.extend(child_dirs);
-                };
-            };
-
-            (map, parent_children)
-        }
-
-        let dirs = match read_dir(&self.path) {
-            Ok(dirs) => dirs,
+    pub fn index_folders(&self) -> Result<HashMap<PathBuf, Directory>, Error> {
+        let (map, _) = match Self::get_folders_recursive(&self.path) {
+            Ok(res) => res,
             Err(e) => return Err(e),
         };
-
-        let (map, _) = index(dirs);
 
         Ok(map)
     }
 
-    pub fn index_file(start: &Path) -> HashMap<PathBuf, File> {
-        todo!()
+    fn get_files_recursive(path: &Path) -> Result<HashMap<PathBuf, File>, Error> {
+        let dirs = match fs::read_dir(path) {
+            Ok(read_dir) => read_dir,
+            Err(e) => return Err(Error::IO(e)),
+        };
+
+        let mut map = HashMap::new();
+
+        for entry in dirs {
+            let entry = match entry {
+                Ok(entry) => entry,
+                Err(_) => continue,
+            };
+
+            let path = entry.path();
+            // Check if is link
+            match fs::read_link(&path) {
+                Ok(_) => continue, // Is a link
+                Err(_) => (),      // Is not a link
+            };
+
+            if path.is_dir() {
+                let files = match Self::get_files_recursive(&path) {
+                    Ok(files) => files,
+                    Err(_) => continue,
+                };
+
+                map.extend(files);
+
+                continue;
+            };
+
+            let file = match File::new(&path) {
+                Ok(file) => file,
+                Err(_) => continue,
+            };
+            map.insert(path, file);
+        }
+
+        Ok(map)
     }
 
-    pub fn index_link(start: &Path) -> HashMap<PathBuf, Link> {
-        todo!()
+    pub fn index_files(&self) -> Result<HashMap<PathBuf, File>, Error> {
+        match Self::get_files_recursive(&self.path) {
+            Ok(files) => Ok(files),
+            Err(e) => Err(e),
+        }
+    }
+
+    fn get_links_recursive(path: &Path) -> Result<HashMap<PathBuf, Link>, Error> {
+        let dirs = match fs::read_dir(path) {
+            Ok(read_dir) => read_dir,
+            Err(e) => return Err(Error::IO(e)),
+        };
+
+        let mut map = HashMap::new();
+
+        for entry in dirs {
+            let entry = match entry {
+                Ok(entry) => entry,
+                Err(_) => continue,
+            };
+
+            let path = entry.path();
+
+            // Check if is link
+            let is_link = match fs::read_link(&path) {
+                Ok(_) => true,   // Is a link
+                Err(_) => false, // Is not a link
+            };
+
+            if path.is_dir() && !is_link {
+                let links = match Self::get_links_recursive(&path) {
+                    Ok(links) => links,
+                    Err(_) => continue,
+                };
+
+                map.extend(links);
+
+                continue;
+            };
+
+            if !is_link || !path.is_symlink() {
+                continue;
+            }
+
+            let link = match Link::new(&path) {
+                Ok(link) => link,
+                Err(_) => continue,
+            };
+            map.insert(path, link);
+        }
+
+        Ok(map)
+    }
+
+    pub fn index_links(&self) -> Result<HashMap<PathBuf, Link>, Error> {
+        match Self::get_links_recursive(&self.path) {
+            Ok(links) => Ok(links),
+            Err(e) => Err(e),
+        }
     }
 }
