@@ -6,7 +6,7 @@ use std::{fs, time};
 use crate::explorer::enums::EntryType;
 use crate::explorer::Explorer;
 use crate::file_system::traits::BasicEntry;
-use crate::search::entries::{directory, Indexer, Link};
+use crate::search::entries::Indexer;
 
 use serde_json;
 
