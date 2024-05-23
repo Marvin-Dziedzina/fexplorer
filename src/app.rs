@@ -61,7 +61,7 @@ impl eframe::App for Fexplorer {
 
             let now = time::SystemTime::now();
 
-            let directories = indexer.index_folders().unwrap();
+            let directories = indexer.index_directories().unwrap();
             let files = indexer.index_files().unwrap();
             let links = indexer.index_links().unwrap();
 
@@ -81,7 +81,6 @@ impl eframe::App for Fexplorer {
 
             println!("Secs: {}", time_needed.as_secs_f32(),);
             println!("Count: {}", directories.len() + files.len() + links.len());
-
         };
 
         // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.

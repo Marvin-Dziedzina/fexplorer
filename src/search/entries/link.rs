@@ -16,7 +16,7 @@ impl Link {
     pub fn new(path: &Path) -> Result<Self, Error> {
         // Check if is link
         let link_data = match fs::read_link(&path) {
-            Ok(link_data) => link_data,                                                                // Is a link
+            Ok(link_data) => link_data, // Is a link
             Err(_) => return Err(Error::InvalidEntryType(String::from("Not a link!"))), // Is not a link
         };
 
@@ -42,4 +42,10 @@ impl PathTrait for Link {
             None => self.path.to_string_lossy().to_string(),
         }
     }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum LinkType {
+    File(PathBuf),
+    Directory(PathBuf),
 }

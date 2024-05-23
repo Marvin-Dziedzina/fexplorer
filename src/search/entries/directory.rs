@@ -18,19 +18,25 @@ pub struct Directory {
     children: HashMap<Name, Child>,
 }
 impl Directory {
-    pub fn new(path: &Path, children: Option<HashMap<Name, Child>>) -> Result<Self, Error> {
+    pub fn new(path: &Path, children: Option<Vec<PathBuf>>) -> Result<Self, Error> {
         if !path.is_dir() {
             return Err(Error::InvalidEntryType(String::from("Not a directory!")));
         };
 
-        let children = match children {
+        let mut children_map = HashMap::new();
+
+        let children_vec = match children {
             Some(children) => children,
-            None => HashMap::new(),
+            None => Vec::new(),
         };
+        for child in children_vec {
+            let child = Child::new(&child);
+            children_map.insert(child.get_name(), child);
+        }
 
         Ok(Self {
             path: Box::new(path.to_path_buf()),
-            children,
+            children: children_map,
         })
     }
 
