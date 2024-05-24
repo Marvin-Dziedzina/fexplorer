@@ -33,10 +33,11 @@ impl Indexer {
         let mut map = HashMap::new();
         let mut parent_children = Vec::new();
 
-        let directories = match Self::get_directories(path) {
+        let (directories, _, _) = match Self::get_entries(path) {
             Ok(entries) => entries,
             Err(e) => return Err(e),
         };
+
         for entry in directories {
             parent_children.push(entry.clone());
 
@@ -68,10 +69,11 @@ impl Indexer {
     fn get_files_recursive(path: &Path) -> Result<HashMap<PathBuf, File>, Error> {
         let mut map = HashMap::new();
 
-        let files = match Self::get_files(path) {
-            Ok(files) => files,
+        let (directories, files, _) = match Self::get_entries(path) {
+            Ok(entries) => entries,
             Err(e) => return Err(e),
         };
+
         // add files to map
         for file_path in files {
             let file = match File::new(&file_path) {
@@ -82,10 +84,6 @@ impl Indexer {
             map.insert(file_path, file);
         }
 
-        let directories = match Self::get_directories(path) {
-            Ok(entries) => entries,
-            Err(e) => return Err(e),
-        };
         // get files from child dirs
         for entry in directories {
             let recursive_found_files = match Self::get_files_recursive(&entry) {
@@ -109,10 +107,11 @@ impl Indexer {
     fn get_links_recursive(path: &Path) -> Result<HashMap<PathBuf, Link>, Error> {
         let mut map = HashMap::new();
 
-        let links = match Self::get_links(path) {
-            Ok(links) => links,
+        let (directories, _, links) = match Self::get_entries(path) {
+            Ok(entries) => entries,
             Err(e) => return Err(e),
         };
+
         // add links to map
         for link in links {
             let link_path = match link {
@@ -128,10 +127,6 @@ impl Indexer {
             map.insert(link_path, link);
         }
 
-        let directories = match Self::get_directories(path) {
-            Ok(entries) => entries,
-            Err(e) => return Err(e),
-        };
         // get links from child dirs
         for entry in directories {
             let recursive_found_links = match Self::get_links_recursive(&entry) {
@@ -151,17 +146,16 @@ impl Indexer {
             Err(e) => Err(e),
         }
     }
-}
 
-// implement get dir/file/link functions
-impl Indexer {
-    fn get_directories(path: &Path) -> Result<Vec<PathBuf>, Error> {
+    fn get_entries(path: &Path) -> Result<(Vec<PathBuf>, Vec<PathBuf>, Vec<LinkType>), Error> {
         let dirs = match fs::read_dir(path) {
             Ok(read_dir) => read_dir,
             Err(e) => return Err(Error::IO(e)),
         };
 
-        let mut entries = Vec::new();
+        let mut directories: Vec<PathBuf> = Vec::new();
+        let mut files: Vec<PathBuf> = Vec::new();
+        let mut links: Vec<LinkType> = Vec::new();
 
         for entry in dirs {
             let entry = match entry {
@@ -171,82 +165,25 @@ impl Indexer {
 
             let entry_path = entry.path();
 
+            let is_directory = entry_path.is_dir();
+            let is_file = entry_path.is_file();
             // Check if is link
             let is_link = match fs::read_link(&path) {
                 Ok(_) => true,   // Is a link
                 Err(_) => false, // Is not a link
             };
 
-            if entry_path.is_dir() && !is_link {
-                // is directory
-                entries.push(entry_path);
-            };
+            if is_directory && !is_link {
+                directories.push(entry_path);
+            } else if is_file && !is_link {
+                files.push(entry_path);
+            } else if is_link && is_directory {
+                links.push(LinkType::Directory(entry_path));
+            } else if is_link && is_file {
+                links.push(LinkType::File(entry_path));
+            }
         }
 
-        Ok(entries)
-    }
-
-    fn get_files(path: &Path) -> Result<Vec<PathBuf>, Error> {
-        let dirs = match fs::read_dir(path) {
-            Ok(read_dir) => read_dir,
-            Err(e) => return Err(Error::IO(e)),
-        };
-
-        let mut entries = Vec::new();
-
-        for entry in dirs {
-            let entry = match entry {
-                Ok(entry) => entry,
-                Err(_) => continue,
-            };
-
-            let entry_path = entry.path();
-
-            // Check if is link
-            let is_link = match fs::read_link(&path) {
-                Ok(_) => true,   // Is a link
-                Err(_) => false, // Is not a link
-            };
-
-            if entry_path.is_file() && !is_link {
-                // is file
-                entries.push(entry_path);
-            };
-        }
-
-        Ok(entries)
-    }
-
-    fn get_links(path: &Path) -> Result<Vec<LinkType>, Error> {
-        let dirs = match fs::read_dir(path) {
-            Ok(read_dir) => read_dir,
-            Err(e) => return Err(Error::IO(e)),
-        };
-
-        let mut entries = Vec::new();
-
-        for entry in dirs {
-            let entry = match entry {
-                Ok(entry) => entry,
-                Err(_) => continue,
-            };
-
-            let entry_path = entry.path();
-
-            // Check if is link
-            let is_link = match fs::read_link(&path) {
-                Ok(_) => true,   // Is a link
-                Err(_) => false, // Is not a link
-            };
-
-            if is_link && entry_path.is_dir() {
-                // is file
-                entries.push(LinkType::Directory(entry_path));
-            } else if is_link && entry_path.is_file() {
-                entries.push(LinkType::File(entry_path));
-            };
-        }
-
-        Ok(entries)
+        Ok((directories, files, links))
     }
 }
