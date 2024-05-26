@@ -53,7 +53,7 @@ impl eframe::App for Fexplorer {
 
     /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        /* if self.is_first_iteration {
+        if self.is_first_iteration {
             self.is_first_iteration = false;
 
             let indexer = Indexer::new(&PathBuf::from_str("/").unwrap());
@@ -80,7 +80,7 @@ impl eframe::App for Fexplorer {
 
             println!("Secs: {}", time_needed.as_secs_f32(),);
             println!("Count: {}", directories.len() + files.len() + links.len());
-        }; */
+        };
 
         // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.
         // For inspiration and more examples, go to https://emilk.github.io/egui
@@ -98,10 +98,11 @@ impl eframe::App for Fexplorer {
 
                 ui.add_space(16.0);
 
-                let mut path = self.explorer.get_path().to_string_lossy().to_string();
-                let output = egui::text_edit::TextEdit::singleline(&mut path).show(ui);
+                let mut path = file_system::get_string_from_path(self.explorer.get_path());
+                let output = egui::text_edit::TextEdit::singleline(&mut path).show(ui); // TODO: Can not edit text field because it refreshes
                 if output.response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                     match self.explorer.set_path(&PathBuf::from("/")) {
+                        // TODO: Use path that is typed
                         Ok(_) => (),
                         Err(e) => println!("{}", e),
                     };

@@ -3,10 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::{
-    entries::PathTrait,
-    explorer::{entries::Entries, Error},
-};
+use crate::{file_system, FexplorerError};
 
 use super::entries::{directory::Directory, file::File, link::Link};
 
@@ -21,33 +18,35 @@ impl Indexer {
         }
     }
 
-    fn get_directories_recursive(path: &Path) -> Result<HashMap<PathBuf, Directory>, Error> {
+    fn get_directories_recursive(
+        path: &Path,
+    ) -> Result<HashMap<PathBuf, Directory>, FexplorerError> {
         let mut map = HashMap::new();
         let mut parent_children = Vec::new();
 
-        let entries = match Entries::new(path) {
-            Ok(entries) => entries,
-            Err(e) => return Err(e),
-        };
+        let (directories, _, _) = file_system::get_entries_sorted(path)?;
 
-        let (directories, files, links) = entries.get_entries();
         for directory in directories {
-            parent_children.push(directory.get_path().to_path_buf());
+            parent_children.push(directory.clone());
 
-            let recursive_found_dirs = match Self::get_directories_recursive(&directory.get_path())
-            {
+            let recursive_found_dirs = match Self::get_directories_recursive(&directory) {
                 Ok(recursive_found_dirs) => recursive_found_dirs,
                 Err(_) => continue,
             };
             map.extend(recursive_found_dirs);
 
-            map.insert(directory.get_path().to_path_buf(), directory);
+            let directory_obj = match Directory::new(&directory) {
+                Ok(directory_obj) => directory_obj,
+                Err(_) => continue,
+            };
+
+            map.insert(directory, directory_obj);
         }
 
         Ok(map)
     }
 
-    pub fn index_directories(&self) -> Result<HashMap<PathBuf, Directory>, Error> {
+    pub fn index_directories(&self) -> Result<HashMap<PathBuf, Directory>, FexplorerError> {
         let map = match Self::get_directories_recursive(&self.path) {
             Ok(res) => res,
             Err(e) => return Err(e),
@@ -56,23 +55,23 @@ impl Indexer {
         Ok(map)
     }
 
-    fn get_files_recursive(path: &Path) -> Result<HashMap<PathBuf, File>, Error> {
+    fn get_files_recursive(path: &Path) -> Result<HashMap<PathBuf, File>, FexplorerError> {
         let mut map = HashMap::new();
 
-        let entries = match Entries::new(path) {
-            Ok(entries) => entries,
-            Err(e) => return Err(e),
-        };
-        let (directories, files, links) = entries.get_entries();
+        let (directories, files, _) = file_system::get_entries_sorted(path)?;
 
         // add files to map
         for file in files {
-            map.insert(file.get_path().to_path_buf(), file);
+            let file_obj = match File::new(&file) {
+                Ok(file_obj) => file_obj,
+                Err(_) => continue,
+            };
+            map.insert(file, file_obj);
         }
 
         // get files from child dirs
-        for entry in directories {
-            let recursive_found_files = match Self::get_files_recursive(entry.get_path()) {
+        for directory in directories {
+            let recursive_found_files = match Self::get_files_recursive(&directory) {
                 Ok(recursive_found_files) => recursive_found_files,
                 Err(_) => continue,
             };
@@ -83,30 +82,31 @@ impl Indexer {
         Ok(map)
     }
 
-    pub fn index_files(&self) -> Result<HashMap<PathBuf, File>, Error> {
+    pub fn index_files(&self) -> Result<HashMap<PathBuf, File>, FexplorerError> {
         match Self::get_files_recursive(&self.path) {
             Ok(files) => Ok(files),
             Err(e) => Err(e),
         }
     }
 
-    fn get_links_recursive(path: &Path) -> Result<HashMap<PathBuf, Link>, Error> {
+    fn get_links_recursive(path: &Path) -> Result<HashMap<PathBuf, Link>, FexplorerError> {
         let mut map = HashMap::new();
 
-        let entries = match Entries::new(path) {
-            Ok(entries) => entries,
-            Err(e) => return Err(e),
-        };
-        let (directories, files, links) = entries.get_entries();
+        let (directories, _, links) = file_system::get_entries_sorted(path)?;
 
         // add links to map
         for link in links {
-            map.insert(link.get_path().to_path_buf(), link);
+            let link_obj = match Link::new(&link) {
+                Ok(link_obj) => link_obj,
+                Err(_) => continue,
+            };
+
+            map.insert(link, link_obj);
         }
 
         // get links from child dirs
         for entry in directories {
-            let recursive_found_links = match Self::get_links_recursive(entry.get_path()) {
+            let recursive_found_links = match Self::get_links_recursive(&entry) {
                 Ok(recursive_found_links) => recursive_found_links,
                 Err(_) => continue,
             };
@@ -117,7 +117,7 @@ impl Indexer {
         Ok(map)
     }
 
-    pub fn index_links(&self) -> Result<HashMap<PathBuf, Link>, Error> {
+    pub fn index_links(&self) -> Result<HashMap<PathBuf, Link>, FexplorerError> {
         match Self::get_links_recursive(&self.path) {
             Ok(links) => Ok(links),
             Err(e) => Err(e),
