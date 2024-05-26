@@ -4,6 +4,8 @@ use std::{fmt::Display, io};
 pub enum Error {
     InvalidEntryType(String),
     IO(io::Error),
+    IOVec(Vec<io::Error>),
+    PathDoesNotExist(String),
 }
 
 impl Display for Error {

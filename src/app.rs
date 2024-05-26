@@ -3,10 +3,9 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::{fs, time};
 
-use crate::explorer::enums::EntryType;
+use crate::entries::PathTrait;
 use crate::explorer::Explorer;
-use crate::file_system::traits::BasicEntry;
-use crate::search::entries::Indexer;
+use crate::search::Indexer;
 
 use serde_json;
 
@@ -99,8 +98,14 @@ impl eframe::App for Fexplorer {
 
                 ui.add_space(16.0);
 
-                let path = self.explorer.get_path().to_string_lossy();
-                ui.label(path);
+                let mut path = self.explorer.get_path().to_string_lossy().to_string();
+                let output = egui::text_edit::TextEdit::singleline(&mut path).show(ui);
+                if output.response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                    match self.explorer.set_path(&PathBuf::from("/")) {
+                        Ok(_) => (),
+                        Err(e) => println!("{}", e),
+                    };
+                };
             });
         });
 
@@ -110,18 +115,16 @@ impl eframe::App for Fexplorer {
                 let mut change_path = false;
                 let mut rel_path: PathBuf = PathBuf::new();
 
-                for entry in self.explorer.get_entries() {
-                    let name = format!(
-                        "[{}] {}",
-                        get_entry_type(entry.get_type()),
-                        entry.get_name().unwrap()
-                    );
+                let entries = self.explorer.get_entries();
+                let (directories, _, _) = entries.get_entries();
+                for directory in directories {
+                    let name = format!("[Directory] {}", directory.get_name());
 
-                    if ui.button(name.clone()).clicked() {
+                    if ui.button(name).clicked() {
                         change_path = true;
-                        rel_path = entry.get_rel_path().unwrap();
+                        rel_path = directory.get_rel_path();
                         break;
-                    };
+                    }
                 }
 
                 if change_path {
@@ -129,14 +132,5 @@ impl eframe::App for Fexplorer {
                 };
             });
         });
-    }
-}
-
-fn get_entry_type(entry_type: &EntryType) -> String {
-    match entry_type {
-        EntryType::Directory => String::from("Directory"),
-        EntryType::File => String::from("File"),
-        EntryType::Link => String::from("Link"),
-        _ => String::from("Unknown"),
     }
 }

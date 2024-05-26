@@ -5,8 +5,6 @@ pub use open;
 mod app;
 pub use app::Fexplorer;
 
-pub mod file_system;
-
+pub mod entries;
 pub mod explorer;
-
 pub mod search;

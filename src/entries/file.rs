@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use super::{traits::PathTrait, Error};
+use crate::explorer::Error;
+
+use super::traits::PathTrait;
 
 use std::{
     fs, io,

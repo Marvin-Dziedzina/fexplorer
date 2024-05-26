@@ -1,4 +1,6 @@
-use super::{traits::PathTrait, Error};
+use crate::explorer::Error;
+
+use super::traits::PathTrait;
 
 use std::{
     collections::HashMap,

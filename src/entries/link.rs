@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use super::{traits::PathTrait, Error};
+use crate::explorer::Error;
+
+use super::traits::PathTrait;
 
 use std::{
     fs, io,
@@ -48,4 +50,12 @@ impl PathTrait for Link {
 pub enum LinkType {
     File(PathBuf),
     Directory(PathBuf),
+}
+impl LinkType {
+    pub fn get_path(&self) -> PathBuf {
+        match self {
+            LinkType::Directory(path) => path.to_path_buf(),
+            LinkType::File(path) => path.to_path_buf(),
+        }
+    }
 }
