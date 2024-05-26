@@ -1,6 +1,5 @@
 use std::io::Write;
 use std::path::PathBuf;
-use std::str::FromStr;
 use std::{fs, time};
 
 use crate::explorer::Explorer;
@@ -56,7 +55,7 @@ impl eframe::App for Fexplorer {
         if self.is_first_iteration {
             self.is_first_iteration = false;
 
-            let indexer = Indexer::new(&PathBuf::from_str("/").unwrap());
+            let indexer = Indexer::default();
 
             let now = time::SystemTime::now();
 

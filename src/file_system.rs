@@ -7,6 +7,7 @@ pub use enums::LinkType;
 pub use error::FileSystemError;
 
 use std::{
+    env,
     fs::{self, ReadDir},
     path::{Path, PathBuf},
 };
@@ -116,6 +117,24 @@ pub fn get_path_name(path: &Path) -> String {
     match path.file_name() {
         Some(name) => name.to_string_lossy().to_string(),
         None => path.to_string_lossy().to_string(),
+    }
+}
+
+pub fn get_root_path() -> PathBuf {
+    let path = match env::current_dir() {
+        Ok(path) => path,
+        Err(e) => panic!("Current dir is not a valid directory! Error: {}", e),
+    };
+
+    let root_path = get_root_path_recursive(&path);
+
+    root_path
+}
+
+fn get_root_path_recursive(path: &Path) -> PathBuf {
+    match path.parent() {
+        Some(path) => get_root_path_recursive(path),
+        None => path.to_path_buf(),
     }
 }
 

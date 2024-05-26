@@ -124,3 +124,11 @@ impl Indexer {
         }
     }
 }
+
+impl Default for Indexer {
+    fn default() -> Self {
+        Self {
+            path: file_system::get_root_path(),
+        }
+    }
+}
