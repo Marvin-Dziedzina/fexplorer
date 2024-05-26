@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::{fs, time};
 
-use crate::entries::PathTrait;
 use crate::explorer::Explorer;
+use crate::file_system;
 use crate::search::Indexer;
 
 use serde_json;
@@ -53,7 +53,7 @@ impl eframe::App for Fexplorer {
 
     /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        if self.is_first_iteration {
+        /* if self.is_first_iteration {
             self.is_first_iteration = false;
 
             let indexer = Indexer::new(&PathBuf::from_str("/").unwrap());
@@ -80,7 +80,7 @@ impl eframe::App for Fexplorer {
 
             println!("Secs: {}", time_needed.as_secs_f32(),);
             println!("Count: {}", directories.len() + files.len() + links.len());
-        };
+        }; */
 
         // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.
         // For inspiration and more examples, go to https://emilk.github.io/egui
@@ -115,14 +115,33 @@ impl eframe::App for Fexplorer {
                 let mut change_path = false;
                 let mut rel_path: PathBuf = PathBuf::new();
 
-                let entries = self.explorer.get_entries();
-                let (directories, _, _) = entries.get_entries();
+                let (directories, files, links) = self.explorer.get_entries();
                 for directory in directories {
-                    let name = format!("[Directory] {}", directory.get_name());
+                    let name = format!("[Directory] {}", file_system::get_path_name(directory));
 
                     if ui.button(name).clicked() {
                         change_path = true;
-                        rel_path = directory.get_rel_path();
+                        rel_path = file_system::get_rel_path(directory);
+                        break;
+                    }
+                }
+
+                for file in files {
+                    let name = format!("[File] {}", file_system::get_path_name(file));
+
+                    if ui.button(name).clicked() {
+                        change_path = true;
+                        rel_path = file_system::get_rel_path(&file);
+                        break;
+                    }
+                }
+
+                for link in links {
+                    let name = format!("[Link] {}", file_system::get_path_name(link));
+
+                    if ui.button(name).clicked() {
+                        change_path = true;
+                        rel_path = file_system::get_rel_path(&link);
                         break;
                     }
                 }

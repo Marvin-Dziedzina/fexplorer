@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::explorer::Error;
+use crate::{file_system, FexplorerError};
 
 use super::traits::PathTrait;
 
@@ -15,16 +15,21 @@ pub struct Link {
     target: Box<PathBuf>,
 }
 impl Link {
-    pub fn new(path: &Path) -> Result<Self, Error> {
-        // Check if is link
-        let link_data = match fs::read_link(&path) {
-            Ok(link_data) => link_data, // Is a link
-            Err(_) => return Err(Error::InvalidEntryType(String::from("Not a link!"))), // Is not a link
+    pub fn new(path: &Path) -> Result<Self, FexplorerError> {
+        if !file_system::is_link(path) {
+            return Err(FexplorerError::FileSystem(
+                file_system::FileSystemError::NotALink(path.to_path_buf()),
+            ));
+        }
+
+        let target_path = match file_system::get_link_target(path) {
+            Ok(path) => path,
+            Err(e) => return Err(e),
         };
 
         Ok(Self {
             path: Box::new(path.to_path_buf()),
-            target: Box::new(link_data),
+            target: Box::new(target_path),
         })
     }
 }
@@ -42,20 +47,6 @@ impl PathTrait for Link {
         match self.path.file_name() {
             Some(name_str) => name_str.to_string_lossy().to_string(),
             None => self.path.to_string_lossy().to_string(),
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum LinkType {
-    File(PathBuf),
-    Directory(PathBuf),
-}
-impl LinkType {
-    pub fn get_path(&self) -> PathBuf {
-        match self {
-            LinkType::Directory(path) => path.to_path_buf(),
-            LinkType::File(path) => path.to_path_buf(),
         }
     }
 }

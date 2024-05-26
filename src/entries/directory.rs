@@ -1,4 +1,7 @@
-use crate::explorer::Error;
+use crate::{
+    file_system::{self, FileSystemError},
+    FexplorerError,
+};
 
 use super::traits::PathTrait;
 
@@ -12,28 +15,23 @@ mod child;
 pub use child::Child;
 use serde::{Deserialize, Serialize};
 
-type Name = String;
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Directory {
     path: Box<PathBuf>,
-    children: HashMap<Name, Child>,
+    children: HashMap<String, Child>,
 }
 impl Directory {
-    pub fn new(path: &Path, children: Option<Vec<PathBuf>>) -> Result<Self, Error> {
-        if !path.is_dir() {
-            return Err(Error::InvalidEntryType(String::from("Not a directory!")));
+    pub fn new(path: &Path) -> Result<Self, FexplorerError> {
+        if !path.is_dir() || file_system::is_link(path) {
+            return Err(FexplorerError::FileSystem(FileSystemError::NotADirectory(
+                path.to_path_buf(),
+            )));
         };
 
         let mut children_map = HashMap::new();
 
-        let children_vec = match children {
-            Some(children) => children,
-            None => Vec::new(),
-        };
-        for child in children_vec {
-            let child = Child::new(&child);
-            children_map.insert(child.get_name(), child);
+        for entry in file_system::get_entries(path)? {
+            children_map.insert(file_system::get_path_name(&entry), Child::from_path(&entry));
         }
 
         Ok(Self {
@@ -42,35 +40,12 @@ impl Directory {
         })
     }
 
-    pub fn get_children(&self) -> &HashMap<Name, Child> {
+    pub fn get_children(&self) -> &HashMap<String, Child> {
         &self.children
     }
 
     pub fn get_child_by_string(&self, name: &str) -> Option<&Child> {
         self.children.get(name)
-    }
-
-    pub fn add_child(&mut self, directory: &Directory) {
-        let path = directory.get_path().to_path_buf();
-        let name = match path.file_name() {
-            Some(name_str) => name_str.to_string_lossy().to_string(),
-            None => path.to_string_lossy().to_string(),
-        };
-
-        let child: Child = Child::new(Path::new(&name));
-
-        self.children.insert(name, child);
-    }
-
-    pub fn add_children(&mut self, children: Vec<PathBuf>) {
-        for child_path in children {
-            let child_dir = match Self::new(&child_path, None) {
-                Ok(child_dir) => child_dir,
-                Err(e) => panic!("{}", e),
-            };
-
-            self.add_child(&child_dir);
-        }
     }
 }
 

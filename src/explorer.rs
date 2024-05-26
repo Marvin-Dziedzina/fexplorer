@@ -1,22 +1,31 @@
 use std::env;
 use std::path::{Path, PathBuf};
 
-pub mod entries;
-pub mod error;
+use opener;
 
-use super::entries::{Directory, File, Link};
-pub use entries::Entries;
-pub use error::Error;
+pub mod entries;
+
+use crate::{file_system, FexplorerError};
+
+type Directory = PathBuf;
+type File = PathBuf;
+type Link = PathBuf;
 
 pub struct Explorer {
     path: PathBuf,
-    entries: Entries,
+    directories: Vec<PathBuf>,
+    files: Vec<PathBuf>,
+    links: Vec<PathBuf>,
 }
 impl Explorer {
-    pub fn new(path: &Path) -> Result<Self, Error> {
+    pub fn new(path: &Path) -> Result<Self, FexplorerError> {
+        let (directories, files, links) = file_system::get_entries_sorted(path)?;
+
         Ok(Self {
             path: path.to_owned(),
-            entries: Entries::new(path)?,
+            directories,
+            files,
+            links,
         })
     }
 
@@ -24,33 +33,35 @@ impl Explorer {
         &self.path
     }
 
-    pub fn get_entries(&self) -> &Entries {
-        &self.entries
+    pub fn get_entries(&self) -> (&Vec<Directory>, &Vec<File>, &Vec<Link>) {
+        (&self.directories, &self.files, &self.links)
     }
 
-    pub fn get_entries_from_path(
-        path: &Path,
-    ) -> Result<(Vec<Directory>, Vec<File>, Vec<Link>), Error> {
-        let entries = match Entries::new(path) {
-            Ok(entries) => entries,
-            Err(e) => return Err(e),
-        };
-        let (directories, files, links) = entries.get_entries();
-
-        Ok((directories, files, links))
-    }
-
-    fn update_entries(&mut self) -> Result<(), Error> {
-        self.entries = match Entries::new(&self.path) {
-            Ok(entries) => entries,
-            Err(e) => return Err(e),
-        };
+    fn update_entries(&mut self) -> Result<(), FexplorerError> {
+        (self.directories, self.files, self.links) = file_system::get_entries_sorted(&self.path)?;
 
         Ok(())
     }
 
-    pub fn set_path(&mut self, path: &Path) -> Result<(), Error> {
-        self.path = path.to_owned();
+    pub fn set_path(&mut self, path: &Path) -> Result<(), FexplorerError> {
+        if file_system::is_directory(path) {
+            self.path = path.to_owned();
+        } else if file_system::is_file(path) {
+            match Self::open_file_with_default_app(path) {
+                Ok(_) => (),
+                Err(e) => return Err(e),
+            };
+        } else if file_system::is_link_to_directory(path) {
+            self.path = match file_system::get_link_target(path) {
+                Ok(target_path) => target_path,
+                Err(e) => return Err(e),
+            };
+        } else if file_system::is_link_to_file(path) {
+            match Self::open_file_with_default_app(path) {
+                Ok(_) => (),
+                Err(e) => return Err(e),
+            };
+        }
 
         match self.update_entries() {
             Ok(ok) => Ok(ok),
@@ -58,14 +69,23 @@ impl Explorer {
         }
     }
 
-    pub fn add_path(&mut self, rel_path: &Path) -> Result<(), Error> {
+    fn open_file_with_default_app(path: &Path) -> Result<(), FexplorerError> {
+        match opener::open(path) {
+            Ok(_) => (),
+            Err(e) => return Err(FexplorerError::OpenError(e)),
+        };
+
+        Ok(())
+    }
+
+    pub fn add_path(&mut self, rel_path: &Path) -> Result<(), FexplorerError> {
         match self.set_path(&self.path.join(rel_path)) {
             Ok(ok) => Ok(ok),
             Err(e) => Err(e),
         }
     }
 
-    pub fn set_to_parent(&mut self) -> Result<(), Error> {
+    pub fn set_to_parent(&mut self) -> Result<(), FexplorerError> {
         let parent = match self.path.parent() {
             Some(parent) => parent,
             None => &self.path,
@@ -80,17 +100,6 @@ impl Explorer {
 
         Ok(())
     }
-
-    fn get_entries_boxed(
-        path: &Path,
-    ) -> Result<(Box<Vec<Directory>>, Box<Vec<File>>, Box<Vec<Link>>), Error> {
-        match Explorer::get_entries_from_path(path) {
-            Ok((directories, files, links)) => {
-                Ok((Box::new(directories), Box::new(files), Box::new(links)))
-            }
-            Err(e) => return Err(e),
-        }
-    }
 }
 
 impl Default for Explorer {
@@ -100,14 +109,20 @@ impl Default for Explorer {
     }
 }
 
-/* #[cfg(test)]
+#[cfg(test)]
 mod tests {
     use super::*;
 
-    fn print_entries(entries: Entries) {
-        let paths = entries.get_paths();
+    fn print_entries(entries: (&Vec<Directory>, &Vec<File>, &Vec<Link>)) {
+        for path in entries.0 {
+            println!("{:?}", path);
+        }
 
-        for path in paths {
+        for path in entries.1 {
+            println!("{:?}", path);
+        }
+
+        for path in entries.2 {
             println!("{:?}", path);
         }
     }
@@ -115,15 +130,6 @@ mod tests {
     #[test]
     fn new() {
         let explorer = Explorer::new(Path::new(&env::current_dir().unwrap())).unwrap();
-        let entries = explorer.get_entries();
-        print_entries(entries);
+        print_entries(explorer.get_entries());
     }
-
-    #[test]
-    fn test_parent() {
-        let mut explorer = Explorer::new(Path::new(&env::current_dir().unwrap())).unwrap();
-
-        explorer.set_to_parent().unwrap();
-        print_entries(&explorer);
-    }
-} */
+}

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::explorer::Error;
+use crate::{file_system::FileSystemError, FexplorerError};
 
 use super::traits::PathTrait;
 
@@ -14,9 +14,11 @@ pub struct File {
     path: Box<PathBuf>,
 }
 impl File {
-    pub fn new(path: &Path) -> Result<Self, Error> {
+    pub fn new(path: &Path) -> Result<Self, FexplorerError> {
         if !path.is_file() {
-            return Err(Error::InvalidEntryType(String::from("Not a file!")));
+            return Err(FexplorerError::FileSystem(FileSystemError::NotAFile(
+                path.to_path_buf(),
+            )));
         };
 
         Ok(Self {
